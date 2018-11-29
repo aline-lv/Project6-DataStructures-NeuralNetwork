@@ -28,7 +28,7 @@ double valor_intermediario(const char *nome_arquivo) {
          conjunto_pesos[i] = (int)num;
     }
     // valor aleatorio de deslocamento b
-    deslocamento = ((double)rand() / ((double)RAND_MAX + 1) * 32500) - 16500.0;
+    deslocamento = ((double)rand() / ((double)RAND_MAX + 1) * 33000) - 16500.0;
     
     for(i = 0; i < 536; i++) 
         somatorio += conjunto_entradas[i]*conjunto_pesos[i];
@@ -40,12 +40,14 @@ double valor_intermediario(const char *nome_arquivo) {
 
 int main(int argc, char *argv[]) {
   
-    // const double e = 2.7182818284590452354;
+ 
+    const double e = 2.7182818284590452354;
     double n = valor_intermediario("./DataSet/VetoresAsfaltoNormalizados/asphalt_1.txt");
-    printf("%.6lf\n", n);
+    
+    printf("valor intermedio(n) = %.6lf\n", n);
 
-    // double funcao_logistica = 1 / (1 + pow(e, -n));
-    // printf("%lf", funcao_logistica);
+    double funcao_logistica = 1/(1 + pow(e, -n));
+    printf("%.50lf\n", funcao_logistica);
     
     return 0;
 }
