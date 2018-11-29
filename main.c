@@ -53,10 +53,11 @@ int main(int argc, char *argv[]) {
     // printf("n = %.6lf\n", n);
     char load_image[52]; 
 
-    int num_image = 10; //numero da imagem carregada
+    int num_image = 1; //numero da imagem carregada
     sprintf(load_image,"./DataSet/VetoresAsfaltoNormalizados/asphalt_%.2d.txt", num_image);
 
     // funcao de ativacao logistica
+    
     double fn = funcao_logistica(load_image);
     
     printf("fn = %lf\n", fn);
