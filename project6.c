@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
     {
     	FILE *fileAsphalt;
     	sprintf(nomeAsfalto, "DataSet/VetoresAsfaltoNormalizados/asphalt_%d.txt", asfalto[z]);
-    	if(fileAsphalt = fopen(nomeAsfalto, "r")){
+    	if(fileAsphalt = fopen(nomeAsfalto, "r")) {
     		printf("Arquivo %s carregado\n\n", nomeAsfalto);
     		fclose(fileAsphalt);
     	}
