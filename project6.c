@@ -114,10 +114,10 @@ int main(int argc, char *argv[]) {
   }
   printf("\n");*/
 
-  double saida1;
-  pass_file_to_vector("./DataSet/VetoresAsfaltoNormalizados/asphalt_20.txt", inicial_input);
-  saida1 = feed_forward(inicial_input, NN->In_layer[0], NN);
-  printf("\n\tSaída do 1º arquivo com 536 posições: %.2lf\n", saida1);
+  double erro1;
+  pass_file_to_vector("./DataSet/VetoresAsfaltoNormalizados/asphalt_02.txt", inicial_input);
+  erro1 = feed_forward(inicial_input, NN->In_layer[0], NN);
+  printf("\n\tSaída do 1º arquivo com 536 posições: %.2lf\n", erro1);
 
   //logística com feed_forward de todo mundo
 
@@ -183,7 +183,7 @@ NeurualNetwork* create_neural_network(){
 
   //allocate Output_layer
   Output_layer = create_neuron();
-  printf("\tCamada de saída alocadacom %d neurônios.\n", new->size_o);
+  printf("\tCamada de saída alocada com %d neurônios.\n", new->size_o);
 
   //allocate W_hidden
   W_hidden = (double**)malloc(HL_NEURONS * sizeof(double*));
@@ -246,56 +246,37 @@ void pass_file_to_vector(char *file_name, double *inputs_file){
   fclose(arquivo);
 }/*End-pass_file_to_vector*/
 
-/*double generate_n(const char *nome_arquivo){
-    int i, count=0;
-    double num;
-    double conjunto_entradas[536];
-    int conjunto_pesos[536], deslocamento;
-    double somatorio = 0.0;
-
-    FILE *arquivo;
-    arquivo = fopen(nome_arquivo, "r");
-
-    // lendo imagem e inserindo os valores no vetor de conjunto de entradas
-    while((fscanf(arquivo, "%lf", &num))!=EOF) {
-        conjunto_entradas[count] = num;
-        count++;
-    }
-    fclose(arquivo);
-
-    srand(time(NULL));
-
-    // inserindo valores aleatorios no vetor conjunto de pesos w[536]
-    for(i = 0; i < 536; i++) {
-        num = ((double)rand() / ((double)RAND_MAX + 1) * 32500) - 16500.0;
-
-         conjunto_pesos[i] = (int)num;
-    }
-    // valor aleatorio de deslocamento b
-    deslocamento = ((double)rand() / ((double)RAND_MAX + 1) * 33000) - 16500.0;
-
-    for(i = 0; i < 536; i++)
-        somatorio += conjunto_entradas[i]*conjunto_pesos[i];
-
-    // printf("deslocamento = %d\nsomatorio = %.6lf\n", deslocamento, somatorio);
-
-    return somatorio + deslocamento;
-}/*End-generate_n*/
-
 double calculate_neuron(Neuron *neuron, double *input, int size_input){
-  double sum_input_w;
-  for(int i = 0; i < 536; i++)
+  double sum_input_w, logistics_function, n;
+
+  for(int i = 0; i < size_input; i++)
       sum_input_w += input[i] * neuron->w[i];
 
-  return sum_input_w + neuron->b;
+  n = sum_input_w + neuron->b;
+  logistics_function = 1 / (1 + exp(-n));
+
+  return logistics_function;
 
 }/*End-calculate_neuron*/
 
 double feed_forward(double *input, Neuron *neuron, NeurualNetwork *NN){
-  double n_i;
+  double input_hidden[NN->size_i], input_o[NN->size_h];
 
-    return n_i = calculate_neuron(neuron, input, NN->size_i);
+  //In layer
+  for(int i = 0; i < NN->size_i; i++){
+    NN->In_layer[i]->logistic_result = calculate_neuron(NN->In_layer[i], input, NN->size_i);
+    input_hidden[i] = NN->In_layer[i]->logistic_result;
+  }
 
+  //Hidden layer
+  for(int i = 0; i < NN->size_h; i++){
+    NN->Hidden_layer[i]->logistic_result = calculate_neuron(NN->Hidden_layer[i], input_hidden, NN->size_h);
+    input_o[i] = NN->Hidden_layer[i]->logistic_result;
+  }
 
+  //Hidden layer
+  NN->Output_layer->logistic_result = calculate_neuron(NN->Output_layer, input_o, NN->size_h);
+
+  return NN->Output_layer->logistic_result;
 
 }/*End-feed_forward*/
