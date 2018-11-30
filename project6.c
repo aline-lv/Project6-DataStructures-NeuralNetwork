@@ -1,828 +1,301 @@
+/*
+ * O QUE FAZER:
+ * - Ter uma NeuralNet, e passar os vetores com as qtds de cada camada, a saida dela é o erro;
+ * - Pegar as saidas da C_IN, montar um vetor de entradas para a C_H;
+ * - Pegar as saidas da C_H,  montar um vetor de entradas para a C_O e obter o erro em double;
+ * - Manda o erro para o back_propa e para um vetor[25] - qdo chegar em 25 manda esse vetor para o MSE();
+ * -
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
 
-//int HL_NEURONS;
+int HL_NEURONS;
+#define MAX_IN 536
+#define OUTPUT_NEURONS 1
+
+/*
+ * STRUCT
+ */
+typedef struct neuron{
+  double *p;
+  double *w;
+  double b;
+  double logistic_result;
+}Neuron;
+
+typedef struct neurualNetwork{
+  int size_i, size_h, size_o;
+  Neuron **In_layer;
+  Neuron **Hidden_layer;
+  Neuron *Output_layer;
+  //double W_in[MAX_IN][MAX_IN], W_hidden[HL_NEURONS][MAX_IN], W_output[HL_NEURONS];
+  double W_in[MAX_IN][MAX_IN], **W_hidden, *W_output;
+  double B_in[MAX_IN], *B_hidden, B_output;
+  double input[MAX_IN];
+}NeurualNetwork;
 
 /*
  * FUNCTIONS' SIGNATURE
  */
-//int myatoi(const char *str);
-void shuffle(int *vet);
-// Randomizar ordem de letiura das imagens.
-
-int menorDecimal(int *dec, char *bin);
-// Rotaciona vetor em 1 bit e retorna o menor decimal
-
-void mountBinaryVector(int **matriz, int col, int lin, char *vetorBin);
-// A função forma uma submatriz 3x3 a partir de um elemento central soma os 9 elementos
-// e calcula a média, em seguida cria matriz char 3x3 de elementos 1 ou 0
-// 1 : elementos >= média
-// 0 : elementos < média.
-// Em seguida monta-se o vetor de binários.
-
-float energ(int **matriz, int linCol);
-// Energia de cada direção da GLCM.
-
-float contr(int **matriz, int linCol);
-// Contraste para as direções da GLCM.
-
-float homog(int **matriz, int linCol);
-// Homogeneidade em cada direção da GLCM.
-
-void GLCM(int **matriz, int col, int lin, float *metricas);
-// Recebe a matriz do arquivo, calcula a ocorrência de vizinhos nas 8 direções, faz os calculos de contraste,energia
-// e homogeneidade e vai salvando na respectiva ordem em um vetor.
-
-float calcDistancia(float *referencia, float **comparador, int posicao);
-// Faz a distância euclidiana entre o vetor de referência e o vetor que está sendo comparado
-
-void normalizarVetores(float *ilbpGlcm, float *ilbpGlcmNormalizado);
-// Normaliza vetores de dados ILBP e GLCM.
-void salvarAsfaltoVetorNormalizado(float * ilbpGlcmNormalizado, int numero);
-void salvarGramaVetorNormalizado(float * ilbpGlcmNormalizado, int numero);
+int arg_to_int(const char *str);
+Neuron* create_neuron();
+NeurualNetwork* create_neural_network();
+void randomize_w(int quantity, double *w, Neuron *neuron);
+double randomize_b();
+void pass_file_to_vector(char *file_name, double *inputs_file);
+//double generate_n(const char *nome_arquivo);
+double calculate_neuron(Neuron *neuron, double *input, int size_input);
+double feed_forward(double *input, Neuron *neuron, NeurualNetwork *NN);
+//void epoch();
+//double get_error(); //error == neural network output
 
 /*
  * MAIN FUNCTION
  */
 int main(int argc, char *argv[]) {
 
-  //HL_NEURONS = myatoi(argv[1]);
+  HL_NEURONS = arg_to_int(argv[1]);
+  NeurualNetwork *NN = NULL;
+  double inicial_input[MAX_IN];
+
+  system("clear");
+  printf("\n\n\t====================PROJETO 6====================\n\n");
+  printf("\t-> Criando dinamicamente a rede neural:\n\n");
+
+  NN = create_neural_network();
+
+  printf("\n\tRede neural criada com sucesso!\n\n");
   //printf("HL_NUM_INT: %d\n", HL_NEURONS);
-	char mark, pv, vetorBin[9], nomeGrama[50], nomeAsfalto[50];
-    int asfalto[51], grama[50]; // Tive que colocar 51 espaços no asfalto pois quando colocava 50 estava dando um bug que
-                                // o último número sempre fosse um número completamente aleatório.
-    int **matriz, *ilbp, decimal[9], i, j, z, cont, menor, lin, col;
-    float *metricas, *ilbpGlcm, *ilbpGlcmNormalizado, distanciaGrama, distanciaAsfalto;
-    float **resultadoGrama, **resultadoAsfalto, **resultadoAsfaltoTeste, **resultadoGramaTeste;
-    float **resultadoGramaTreinamento, *mediaGrama, **resultadoAsfaltoTreinamento, *mediaAsfalto;
-    float taxaAcerto = 0.0, falsaAceitacao = 0.0, falsaRejeicao = 0.0;
+  //double output;
+  //output = feed_forward(input);
 
-    // Alocação dinamica da matriz dos resultadoGramaTreinamento.
-    resultadoGrama = (float**)malloc(50*sizeof(float *));
-    for (i = 0; i < 50; i++)
-    {
-        *(resultadoGrama+i) = (float*)malloc(536*sizeof(float));
-    }
+  //First input into de NeurualNetwork
+  //Randomize w and b
+  for(int i = 0; i < NN->size_i; i++){ //W_in
+    randomize_w(NN->size_i, NN->W_in[i], NN->In_layer[i]);
 
-    resultadoAsfalto = (float**)malloc(50*sizeof(float *));
-    for (i = 0; i < 50; i++)
-    {
-        *(resultadoAsfalto+i) = (float*)malloc(536*sizeof(float));
-    }
+  }
 
-    resultadoGramaTreinamento = (float**)malloc(25*sizeof(float *));
-    resultadoGramaTeste = (float**)malloc(25*sizeof(float *));
-    for (i = 0; i < 25; i++)
-    {
-        *(resultadoGramaTreinamento+i) = (float*)malloc(536*sizeof(float));
-        *(resultadoGramaTeste+i) = (float*)malloc(536*sizeof(float));
-    }
+  for(int i = 0; i < NN->size_i; i++){ //B_in
+    srand(time(NULL));
+    NN->B_in[i] = randomize_b();
+    NN->In_layer[i]->b = NN->B_in[i];
+  }
 
-    resultadoAsfaltoTreinamento = (float**)malloc(25*sizeof(float *));
-    resultadoAsfaltoTeste = (float**)malloc(25*sizeof(float *));
-    for (i = 0; i < 25; i++)
-    {
-        *(resultadoAsfaltoTreinamento+i) = (float*)malloc(536*sizeof(float));
-        *(resultadoAsfaltoTeste+i) = (float*)malloc(536*sizeof(float));
-    }
+  for(int i = 0; i < NN->size_h; i++){ //W_hidden
+    randomize_w(NN->size_i, NN->W_hidden[i], NN->Hidden_layer[i]);
+  }
 
-    mediaGrama = (float *) calloc(536, sizeof (float));
+  for(int i = 0; i < NN->size_h; i++){ //B_hidden
+    srand(time(NULL));
+    NN->B_hidden[i] = randomize_b();
+    NN->Hidden_layer[i]->b = NN->B_hidden[i];
+  }
 
-    mediaAsfalto = (float *) calloc(536, sizeof (float));
+  randomize_w(NN->size_h, NN->W_output, NN->Output_layer); //W_output
+  srand(time(NULL));
+  NN->B_output = randomize_b(); //B_output
+  NN->Output_layer->b = NN->B_output;
 
-    shuffle(asfalto);
+  /*printf("\nW_output:\n");
 
-    // cont = posição do vetor de resultados do asfalto.
-    cont = 0;
+  for(int j = 0; j < MAX_IN; j++){
+    printf("%.2lf ", NN->W_output[j]);
+  }
+  printf("\n");
 
-    for (z = 1; z <= 50; z++)
-    {
-    	FILE *fileAsphalt;
-    	sprintf(nomeAsfalto, "DataSet/VetoresAsfaltoNormalizados/asphalt_%d.txt", asfalto[z]);
-    	if(fileAsphalt = fopen(nomeAsfalto, "r")) {
-    		printf("Arquivo %s carregado\n\n", nomeAsfalto);
-    		fclose(fileAsphalt);
-    	}
-        else{
-	        printf("Trabalhando na imagem de asfalto numero %d\n", z);
-	        // Criar ponteiro de arquivo
-	        
+  printf("\nB_hidden:\n");
 
-	        if (asfalto[z] < 10)
-	        {
-	            sprintf(nomeAsfalto, "DataSet/asphalt/asphalt_0%d.txt", asfalto[z]);
-	        }
-	        else
-	        {
-	            sprintf(nomeAsfalto, "DataSet/asphalt/asphalt_%d.txt", asfalto[z]);
-	        }
-	        printf("Arquivo: %s\n", nomeAsfalto);
+  for(int j = 0; j < HL_NEURONS; j++){
+    printf("%.2lf ", NN->B_hidden[j]);
+  }
+  printf("\n");*/
 
-	        fileAsphalt = fopen(nomeAsfalto, "r");
+  double saida1;
+  pass_file_to_vector("./DataSet/VetoresAsfaltoNormalizados/asphalt_20.txt", inicial_input);
+  saida1 = feed_forward(inicial_input, NN->In_layer[0], NN);
+  printf("\n\tSaída do 1º arquivo com 536 posições: %.2lf\n", saida1);
 
-	        // Verificar existencia do arquivo
-	        if (fileAsphalt == NULL)
-	        {
-	            printf("O seguinte arquivo nao existe: %s\n", nomeAsfalto);
-	            exit(1);
-	        }
+  //logística com feed_forward de todo mundo
 
-	        lin = 0;
-	        col = 1;
 
-	        // Verificar qnt de linhas e colunas do arquivo
-	        while ((mark = fgetc(fileAsphalt)) != EOF)
-	        {
-	            if (mark == '\n')
-	            {
-	                lin++;
-	            }
-	            else if (lin == 1 && mark == ';')
-	            {
-	                col++;
-	            }
-	        }
 
-	        // Volta ao início do arquivo
-	        rewind(fileAsphalt);
+  return 0;
+}/*End-main*/
 
-	        // Alocação dinamica da matriz do arquivo
-	        matriz = (int**)malloc(lin*sizeof(int *));
-	        for (i = 0; i < lin; i++)
-	        {
-	            *(matriz+i) = (int*)malloc(col*sizeof(int));
-	        }
-
-	        // Alocação dinamica do vetor ILBP
-	        ilbp = (int *) calloc(512, sizeof (int));
-
-	        // Alocação dinamica do vetor metricas
-	        metricas = (float *) calloc(24, sizeof (float));
-
-	        // Alocação dinamica do vetor ilbp+glcm
-	        ilbpGlcm = (float *) calloc(536, sizeof (float));
-
-	        // Alocação dinamica do vetor ilbp+glcm normalizado
-	        ilbpGlcmNormalizado = (float *) calloc(536, sizeof (float));
-
-	        // Passa elementos do arquivo para a matriz dinamica
-	        for (i = 0; i < lin; i++)
-	        {
-	            for (j = 0; j < col; j++)
-	            {
-	                if (!feof(fileAsphalt))
-	                {
-	                    fscanf(fileAsphalt, "%d%c", *(matriz+i)+j, &pv);
-	                }
-	            }
-	        }
-
-	        // Cria vetor ILBP
-	        for (i = 1; i < lin - 1; i++)
-	        {
-	            for (j = 1; j < col - 1; j++)
-	            {
-	                mountBinaryVector(matriz, j, i, vetorBin);
-	                menor = menorDecimal(decimal, vetorBin);
-	                ilbp[menor]++;
-	            }
-	        }
-
-	        GLCM(matriz, col, lin, metricas);
-
-	        // Concatenar ilbp + glcm,
-	        for (i = 0; i < 512; i++)
-	        {
-	            *(ilbpGlcm + i) = *(ilbp + i);
-	        }
-	        for (i = 512; i < 536; i++)
-	        {
-	            *(ilbpGlcm + i) = *(metricas + (i - 512));
-	        }
-
-	        free(ilbp);
-	        free(metricas);
-
-	        // Normaliza vetor após ser concatenado
-	        normalizarVetores(ilbpGlcm, ilbpGlcmNormalizado);
-
-	        salvarAsfaltoVetorNormalizado(ilbpGlcmNormalizado, asfalto[z]);
-
-	        free(ilbpGlcm);
-
-	        // Salva vetor normalizado
-	        for (i = 0; i < 536; i++)
-	        {
-	            *(*(resultadoAsfalto+cont)+i) = *(ilbpGlcmNormalizado + i);
-	        }
-	        cont++;
-	        printf("Done\n\n");
-
-	        for (i = 0; i < lin; i++)
-	        {
-	            free(*(matriz+i));
-	        }
-	        free(matriz);
-
-	        free(ilbpGlcmNormalizado);
-
-	        fclose(fileAsphalt);
-	   	}
-    }
-
-    shuffle(grama);
-
-    // cont = posição do vetor de resultados da grama.
-    cont = 0;
-
-    for (z = 1; z <= 50; z++)
-    {	
-    	FILE *fileGrass;
-    	sprintf(nomeGrama, "DataSet/VetoresGramaNormalizados/grass_%d.txt", grama[z]);
-    	if(fileGrass = fopen(nomeGrama, "r")){
-    		printf("Arquivo %s carregado\n\n", nomeGrama);
-    		fclose(fileGrass);
-    	}
-        else{
-        	printf("Trabalhando na imagem de grama numero: %d\n", z);
-                // Criar ponteiro de arquivo
-                
-        
-                if (grama[z] <= 9)
-                {
-                    sprintf(nomeGrama, "DataSet/grass/grass_0%d.txt", grama[z]);
-                }
-                else
-                {
-                    sprintf(nomeGrama, "DataSet/grass/grass_%d.txt", grama[z]);
-                }
-                printf("Arquivo: %s\n", nomeGrama);
-        
-                // Abrir arquivo em modo de leitura apenas
-                fileGrass = fopen(nomeGrama, "r");
-        
-                // Verificar existencia do arquivo
-                if (fileGrass == NULL)
-                {
-                    printf("O seguinte arquivo nao existe: %s\n", nomeGrama);
-                    exit(1);
-                }
-                lin = 0;
-                col = 1;
-        
-                // Verificar qnt de linhas e colunas do arquivo
-                while ((mark = fgetc(fileGrass)) != EOF)
-                {
-                    if (mark == '\n')
-                    {
-                        lin++;
-                    }
-                    else if (lin == 1 && mark == ';')
-                    {
-                        col++;
-                    }
-                }
-        
-                // Volta ao início do arquivo
-                rewind(fileGrass);
-        
-                // Alocação dinamica da matriz do arquivo
-                matriz = (int**)malloc(lin*sizeof(int *));
-                for (i = 0; i < lin; i++)
-                {
-                    *(matriz+i) = (int*)malloc(col*sizeof(int));
-                }
-        
-                // Alocação dinamica do vetor ILBP
-                ilbp = (int *) calloc(512, sizeof (int));
-        
-                // Alocação dinamica do vetor metricas de 24
-                metricas = (float *) calloc(24, sizeof (float));
-        
-                // AAlocação dinamica do vetor ilbp+glcm
-                ilbpGlcm = (float *) calloc(536, sizeof (float));
-        
-                // Alocação dinamica do vetor ilbp+glcm normalizado
-                ilbpGlcmNormalizado = (float *) calloc(536, sizeof (float));
-        
-                // Passa elementos do arquivo para a matriz dinamica
-                for (i = 0; i < lin; i++)
-                {
-                    for (j = 0; j < col; j++)
-                    {
-                        if (!feof(fileGrass))
-                        {
-                            fscanf(fileGrass, "%d%c", *(matriz+i)+j, &pv);
-                        }
-                    }
-                }
-        
-                // Cria vetor ILBP.
-                for (i = 1; i < lin - 1; i++)
-                {
-                    for (j = 1; j < col - 1; j++)
-                    {
-                        mountBinaryVector(matriz, j, i, vetorBin);
-                        menor = menorDecimal(decimal, vetorBin);
-                        ilbp[menor]++;
-                    }
-                }
-        
-                GLCM(matriz, col, lin, metricas);
-        
-                // Concatenando ilbp + glcm,
-                for (i = 0; i < 512; i++)
-                {
-                    *(ilbpGlcm + i) = *(ilbp + i);
-                }
-                for (i = 512; i < 536; i++)
-                {
-                    *(ilbpGlcm + i) = *(metricas + (i - 512));
-                }
-        
-                free(ilbp);
-                free(metricas);
-        
-                // Normaliza vetor após ser concatenado
-                normalizarVetores(ilbpGlcm, ilbpGlcmNormalizado);
-        
-                salvarGramaVetorNormalizado(ilbpGlcmNormalizado, grama[z]);
-        
-                free(ilbpGlcm);
-        
-                // Salva vetor normalizado
-                for (i = 0; i < 536; i++)
-                {
-                    *(*(resultadoGrama+cont)+i) = *(ilbpGlcmNormalizado + i);
-                }
-                cont++;
-                printf("Done\n\n");
-        
-                for (i = 0; i < lin; i++)
-                {
-                    free(*(matriz+i));
-                }
-                free(matriz);
-        
-                free(ilbpGlcmNormalizado);
-        
-                fclose(fileGrass);
-        }
-    }
-
-	for (i = 0; i < 50; i++)
-	{
-	    free(*(resultadoGrama+i));
-	    free(*(resultadoAsfalto+i));
-	}
-	free(resultadoGrama);
-	free(resultadoAsfalto);
-	for (i = 0; i < 25; i++)
-	{
-	    free(*(resultadoGramaTreinamento+i));
-	    free(*(resultadoAsfaltoTreinamento+i));
-	    free(*(resultadoGramaTeste+i));
-	    free(*(resultadoAsfaltoTeste+i));
-	}
-	free(resultadoGramaTreinamento);
-	free(resultadoGramaTeste);
-	free(resultadoAsfaltoTeste);
-	free(resultadoAsfaltoTreinamento);
-	free(mediaAsfalto);
-	free(mediaGrama);
-
-	return 0;
-}
 
 /*
  * FUNCTIONS' SCOPE
  */
-/*int myatoi(const char *str){
+int arg_to_int(const char *str){
     int i, res = 0;
-    for (i = 0; str[i] != '\0'; ++i) {
+    for (i = 0; str[i] != '\0'; ++i){
         res = res * 10 + str[i] - '0';
     }
     return res;
-}*/
+}/*End-arg_to_int*/
 
-void shuffle(int *vect)
-{
+Neuron* create_neuron(){
+  Neuron *new = NULL;
 
-    int i;
+  new = (Neuron*) malloc(sizeof(Neuron));
 
-    srand((unsigned)time(0)*100);
+  if (new == NULL)
+		exit(-10);
 
-    for (i = 1; i <= 50; i++)
-    {
-        vect[i] = i;
-    }
+ new->p = NULL;
+ new->w = NULL;
 
-    for (i = 1; i <= 50; i++)
-    {
-        int tmp = vect[i];
-        int aleatorio = rand() % 50;
-        if (aleatorio != 0)
-        {
-            vect[i] = vect[aleatorio];
-            vect[aleatorio] = tmp;
-        }
-    }
-}
+ return new;
 
-int menorDecimal(int *dec, char *bin)
-{
-    int decimal, i, k, c, j, n = 9, m = 0, menor = 512;
-    char tmp;
+}/*End-create_neuron*/
 
-    for (k = 9; k > 0; k--)
-    {
-        // Transforma em decimal.
-        decimal = 0;
-        j = 0;
-        for (i = 8; i >= 0; i--)
-        {
-            if (*(bin + i) == '1')
-            {
-                decimal += pow(2, j);
-            }
-            j++;
-        }
+NeurualNetwork* create_neural_network(){
+  NeurualNetwork *new = NULL;
+  Neuron **In_layer = NULL, **Hidden_layer = NULL, *Output_layer = NULL;
+  double **W_hidden, *W_output, *B_hidden;
 
-        // Rotacionar vetor a 1 bit.
-        tmp = bin[n - 1];
-        for (c = n-1; c > 0; c--)
-        {
-            bin[c] = bin[c - 1];
-        }
-        bin[0] = tmp;
+  new = (NeurualNetwork*) malloc(sizeof(NeurualNetwork));
 
-        dec[m] = decimal;
-        m++;
-    }
+  if (new == NULL)
+		exit(-10);
 
-    // Descobre qual o menor valor decimal
-    for (int i = 0; i <= 8; i++)
-    {
-        if (menor > dec[i])
-        {
-            menor = dec[i];
-        }
-    }
+  new->size_i = MAX_IN;
+  new->size_h = HL_NEURONS;
+  new->size_o = 1;
 
-    return menor;
-}
+  //allocate In_layer
+  In_layer = (Neuron**)malloc(MAX_IN * sizeof(Neuron*));
+  for (int j = 0; j < MAX_IN; j++)
+      *(In_layer + j) = create_neuron();
 
-void mountBinaryVector(int **matriz, int col, int lin, char *vetorBin)
-{
-    float soma = 0, media;
-    int i, j, x = 0, y = 0;
-    char **bin;
+  printf("\tCamada de entrada alocada com %d neurônios.\n", new->size_i);
 
-    // Alocação dinâmica da submatriz 3x3 de binários.
-    bin = (char**)malloc(3*sizeof(char *));
-    for (i = 0; i < 3; i++)
-    {
-        *(bin + i) = (char*)malloc(3*sizeof(char));
-    }
+  //allocate Hidden_layer
+  Hidden_layer = (Neuron**)malloc(HL_NEURONS * sizeof(Neuron*));
+  for (int j = 0; j < HL_NEURONS; j++)
+      *(Hidden_layer + j) = create_neuron();
 
-    // Soma da submatriz[3][3].
-    for (i = lin - 1; i <= lin + 1; i++)
-    {
-        for (j = col - 1; j <= col + 1; j++)
-        {
-            soma += *(*(matriz+i)+j);
-        }
-    }
+  printf("\tCamada oculta alocada com %d neurônios.\n", new->size_h);
 
-    media = soma / 9.0;
+  //allocate Output_layer
+  Output_layer = create_neuron();
+  printf("\tCamada de saída alocadacom %d neurônios.\n", new->size_o);
 
-    // Se: elemento >= média, elemento = 1
-    // Se: elemento < média, elemento = 0
-    for (i = lin - 1; i <= lin + 1; i++)
-    {
-        for (j = col - 1; j <= col + 1; j++)
-        {
-            if (*(*(matriz+i)+j) < media)
-            {
-                *(*(bin+x)+y) = '0';
-                y++;
-            }
-            else if (*(*(matriz+i)+j) >= media)
-            {
-                *(*(bin+x)+y) = '1';
-                y++;
-            }
-        }
-        y = 0;
-        x++;
-    }
+  //allocate W_hidden
+  W_hidden = (double**)malloc(HL_NEURONS * sizeof(double*));
+  for (int j = 0; j < HL_NEURONS; j++)
+      *(W_hidden + j) = (double*)malloc(MAX_IN * sizeof(double));
 
-    // Salva os elementos em vetorBin na ordem definida pelo ILBP.
-    vetorBin[0] = *(*(bin+0)+0);
-    vetorBin[1] = *(*(bin+0)+1);
-    vetorBin[2] = *(*(bin+0)+2);
-    vetorBin[3] = *(*(bin+1)+2);
-    vetorBin[4] = *(*(bin+2)+2);
-    vetorBin[5] = *(*(bin+2)+1);
-    vetorBin[6] = *(*(bin+2)+0);
-    vetorBin[7] = *(*(bin+1)+0);
-    vetorBin[8] = *(*(bin+1)+1);
+  //allocate W_output
+  W_output = (double*)malloc(HL_NEURONS * sizeof(double));
 
-    for (i = 0; i < 3; i++)
-    {
-        free(*(bin+i));
-    }
-    free(bin);
-}
+  //allocate B_hidden
+  B_hidden = (double*)malloc(HL_NEURONS * sizeof(double));
 
-float energ(int **matriz, int linCol)
-{
+  new->In_layer = In_layer;
+  new->Hidden_layer = Hidden_layer;
+  new->Output_layer = Output_layer;
+  new->W_hidden = W_hidden;
+  new->W_output = W_output;
+  new->B_hidden = B_hidden;
 
-    int i, j;
-    float energ = 0;
+  return new;
+}/*End-create_neural_network*/
 
-    for (i=0; i<linCol; i++)
-    {
-        for (j=0; j<linCol; j++)
-        {
-            energ += pow(matriz[i][j],2);
-        }
-    }
+void randomize_w(int quantity, double *w, Neuron *neuron){
+  double num;
+  srand(time(NULL));
 
-    return energ;
-}
+  if(neuron->w == NULL){
+    neuron->w = (double*) malloc(quantity * sizeof(double));
 
-float contr(int **matriz, int linCol)
-{
+    if(neuron->w == NULL)
+      exit(-20);
+  }
 
-    int i, j;
-    float contr = 0;
+  for(int i = 0; i < quantity; i++){
+      num = ((double)rand() / ((double)RAND_MAX + 1) * 32500) - 16500.0;
+      *(w + i) = num;
+      *(neuron->w + i) = num;
+  }
 
-    for (i=0; i<linCol; i++)
-    {
-        for (j=0; j<linCol; j++)
-        {
-            contr += pow(i-j,2)*matriz[i][j];
-        }
-    }
+}/*End-randomize_w*/
 
-    return contr;
-}
+double randomize_b(){
+  srand(time(NULL));
 
+  return ((double)rand() / ((double)RAND_MAX + 1) * 33000) - 16500.0;
+}/*End-randomize_b*/
 
-float homog(int **matriz, int linCol)
-{
+void pass_file_to_vector(char *file_name, double *inputs_file){
+  FILE *arquivo;
+  int count = 0;
+  double num;
 
-    int i, j, z;
-    float homog = 0;
+  arquivo = fopen(file_name, "r");
 
-    for (i=0; i<linCol; i++)
-    {
-        for (j=0; j<linCol; j++)
-        {
-            z = i-j;
-            if (z < 0)
-            {
-                z = z*(-1);
-            }
-            homog += matriz[i][j] / (1 + z);
-        }
-    }
+  // lendo imagem e inserindo os valores no vetor de conjunto de entradas
+  while((fscanf(arquivo, "%lf", &num))!=EOF) {
+      inputs_file[count] = num;
+      count++;
+  }
+  fclose(arquivo);
+}/*End-pass_file_to_vector*/
 
-    return homog;
-}
+/*double generate_n(const char *nome_arquivo){
+    int i, count=0;
+    double num;
+    double conjunto_entradas[536];
+    int conjunto_pesos[536], deslocamento;
+    double somatorio = 0.0;
 
+    FILE *arquivo;
+    arquivo = fopen(nome_arquivo, "r");
 
-void GLCM(int **matriz, int col, int lin, float *metricas)
-{
-    int **glcm, i, j, m, glcmLinCol = 512;
-
-    for (m = 0; m < 8; m++)
-    {
-        // Aloca matriz para salvar o GLCM de cada cordenada.
-        glcm = (int**)calloc(glcmLinCol, sizeof(int *));
-        for (i = 0; i < glcmLinCol; i++)
-        {
-            *(glcm+i) = (int*)calloc(glcmLinCol, sizeof(int));
-        }
-
-        if (m == 0)
-        {
-            // Incremento da posição [elemento][elemento leste] da matriz glcm.
-            for (i = 0; i < lin; i++)
-            {
-                for (j = 0; j < col - 1; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i][j+1]]++;
-                }
-            }
-            *(metricas + 0) = contr(glcm, glcmLinCol);
-            *(metricas + 1) = energ(glcm, glcmLinCol);
-            *(metricas + 2) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 1)
-        {
-            // Incremento da posição [elemento][elemento oeste] da matriz glcm.
-            for (i = 0; i < lin; i++)
-            {
-                for (j = 1; j < col; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i][j-1]]++;
-                }
-            }
-            *(metricas + 3) = contr(glcm, glcmLinCol);
-            *(metricas + 4) = energ(glcm, glcmLinCol);
-            *(metricas + 5) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 2)
-        {
-
-            // Incremento da posição [elemento][elemento norte] da matriz glcm.
-            for (i = 1; i < lin; i++)
-            {
-                for (j = 0; j < col; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i-1][j]]++;
-                }
-            }
-            *(metricas + 6) = contr(glcm, glcmLinCol);
-            *(metricas + 7) = energ(glcm, glcmLinCol);
-            *(metricas + 8) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 3)
-        {
-
-            // Incremento da posição [elemento][elemento sul] da matriz glcm.
-            for (i = 0; i < lin - 1; i++)
-            {
-                for (j = 0; j < col; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i+1][j]]++;
-                }
-            }
-            *(metricas + 9) = contr(glcm, glcmLinCol);
-            *(metricas + 10) = energ(glcm, glcmLinCol);
-            *(metricas + 11) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 4)
-        {
-
-            // Incremento da posição [elemento][elemento noroeste] da matriz glcm.
-            for (i = 1; i < lin; i++)
-            {
-                for (j = 1; j < col; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i-1][j-1]]++;
-                }
-            }
-            *(metricas + 12) = contr(glcm, glcmLinCol);
-            *(metricas + 13) = energ(glcm, glcmLinCol);
-            *(metricas + 14) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 5)
-        {
-
-            // Incremento da posição [elemento][elemento sudeste] da matriz glcm.
-            for (i = 1; i < lin; i++)
-            {
-                for (j = 0; j < col - 1; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i-1][j+1]]++;
-                }
-            }
-            *(metricas + 15) = contr(glcm, glcmLinCol);
-            *(metricas + 16) = energ(glcm, glcmLinCol);
-            *(metricas + 17) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 6)
-        {
-
-            // Incremento da posição [elemento][elemento sudoeste] da matriz glcm.
-            for (i = 0; i < lin - 1; i++)
-            {
-                for (j = 1; j < col; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i+1][j-1]]++;
-                }
-            }
-            *(metricas + 18) = contr(glcm, glcmLinCol);
-            *(metricas + 19) = energ(glcm, glcmLinCol);
-            *(metricas + 20) = homog(glcm, glcmLinCol);
-        }
-        else if (m == 7)
-        {
-
-            // Incremento da posição [elemento][elemento sudeste] da matriz glcm.
-            for (i = 0; i < lin - 1; i++)
-            {
-                for (j = 0; j < col - 1; j++)
-                {
-                    glcm[matriz[i][j]][matriz[i+1][j+1]]++;
-                }
-            }
-            *(metricas + 21) = contr(glcm, glcmLinCol);
-            *(metricas + 22) = energ(glcm, glcmLinCol);
-            *(metricas + 23) = homog(glcm, glcmLinCol);
-        }
-
-
-        for (i = 0; i < glcmLinCol; i++)
-        {
-            free(*(glcm+i));
-        }
-        free(glcm);
-
-    }
-}
-
-float calcDistancia(float *referencia, float **comparador, int posicao)
-{
-    int i, j;
-    float resultado = 0.0, elementoVetorReferencia, elementoVetorComparador, diferenca;
-
-    // Calcula a distância entre os vetores
-    for (j = 0; j < 536; j++)
-    {
-        elementoVetorReferencia = *(referencia + j);
-        elementoVetorComparador = *(*(comparador+posicao)+j);
-        diferenca = elementoVetorReferencia - elementoVetorComparador;
-        resultado += pow(diferenca, 2);
-    }
-    resultado = sqrt(resultado);
-
-    return resultado;
-}
-
-void normalizarVetores(float *ilbpGlcm, float *ilbpGlcmNormalizado)
-{
-    int i;
-    float maior = 0, menor = 99999999;
-
-    // Descobre o menor elemento e o maior elemento do vetor ilbpGlcm
-    for (i = 0; i < 536; i++)
-    {
-        if (*(ilbpGlcm + i) > maior)
-        {
-            maior = *(ilbpGlcm + i);
-        }
-        if (menor > *(ilbpGlcm + i))
-        {
-            menor = *(ilbpGlcm + i);
-        }
-    }
-
-    // Calcula e guarda os valores normalizados
-    for (i = 0; i < 536; i++)
-    {
-        *(ilbpGlcmNormalizado + i) = (*(ilbpGlcm + i) - menor) / (maior - menor);
-        if (*(ilbpGlcmNormalizado + i) < 0)
-        {
-            *(ilbpGlcmNormalizado + i) = *(ilbpGlcmNormalizado + i) * (-1);
-        }
-    }
-}
-
-void salvarAsfaltoVetorNormalizado(float * ilbpGlcmNormalizado, int numero){
-	FILE *arquivo;
-	char nomeAsfalto[50];
-
-    sprintf(nomeAsfalto, "DataSet/VetoresAsfaltoNormalizados/asphalt_%d.txt", numero);
-
-    printf("Salvando arquivo: %s\n", nomeAsfalto);
-
-    // Abrir arquivo em modo de leitura apenas
-    arquivo = fopen(nomeAsfalto, "w");
-
-    int i;
-    for (i = 0; i < 536; i++)
-    {
-        fprintf(arquivo, "%f\n", *(ilbpGlcmNormalizado + i));
-        //printf("%f\n", *(ilbpGlcmNormalizado+i));
+    // lendo imagem e inserindo os valores no vetor de conjunto de entradas
+    while((fscanf(arquivo, "%lf", &num))!=EOF) {
+        conjunto_entradas[count] = num;
+        count++;
     }
     fclose(arquivo);
 
-}
+    srand(time(NULL));
 
-void salvarGramaVetorNormalizado(float * ilbpGlcmNormalizado, int numero){
-	FILE *arquivo;
-	char nomeGrama[50];
+    // inserindo valores aleatorios no vetor conjunto de pesos w[536]
+    for(i = 0; i < 536; i++) {
+        num = ((double)rand() / ((double)RAND_MAX + 1) * 32500) - 16500.0;
 
-    
-    sprintf(nomeGrama, "DataSet/VetoresGramaNormalizados/grass_%d.txt", numero);
-    
-    printf("Salvando arquivo: %s\n", nomeGrama);
-
-    // Abrir arquivo em modo de leitura apenas
-    arquivo = fopen(nomeGrama, "w");
-
-    int i;
-    for (i = 0; i < 536; i++)
-    {
-        fprintf(arquivo, "%f\n", *(ilbpGlcmNormalizado + i));
-        //printf("%f\n", *(ilbpGlcmNormalizado+i));
+         conjunto_pesos[i] = (int)num;
     }
-    fclose(arquivo);
-}
+    // valor aleatorio de deslocamento b
+    deslocamento = ((double)rand() / ((double)RAND_MAX + 1) * 33000) - 16500.0;
+
+    for(i = 0; i < 536; i++)
+        somatorio += conjunto_entradas[i]*conjunto_pesos[i];
+
+    // printf("deslocamento = %d\nsomatorio = %.6lf\n", deslocamento, somatorio);
+
+    return somatorio + deslocamento;
+}/*End-generate_n*/
+
+double calculate_neuron(Neuron *neuron, double *input, int size_input){
+  double sum_input_w;
+  for(int i = 0; i < 536; i++)
+      sum_input_w += input[i] * neuron->w[i];
+
+  return sum_input_w + neuron->b;
+
+}/*End-calculate_neuron*/
+
+double feed_forward(double *input, Neuron *neuron, NeurualNetwork *NN){
+  double n_i;
+
+    return n_i = calculate_neuron(neuron, input, NN->size_i);
+
+
+
+}/*End-feed_forward*/
