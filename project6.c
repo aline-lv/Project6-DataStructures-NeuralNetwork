@@ -1,11 +1,3 @@
-/*
- * O QUE FAZER:
- * - Ter uma NeuralNet, e passar os vetores com as qtds de cada camada, a saida dela é o erro;
- * - Pegar as saidas da C_IN, montar um vetor de entradas para a C_H;
- * - Pegar as saidas da C_H,  montar um vetor de entradas para a C_O e obter o erro em double;
- * - Manda o erro para o back_propa e para um vetor[25] - qdo chegar em 25 manda esse vetor para o MSE();
- * -
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +51,7 @@ double feed_forward(double *input, NeurualNetwork *NN);
 void network_training(double *input, NeurualNetwork *NN);
 double mean_square_error(double *error_vector);
 void back_propagation(double error, NeurualNetwork *NN);
+void network_test(double *input, NeurualNetwork *NN, int *asphalt_test, int *grass_test);
 
 /*
  * MAIN FUNCTION
@@ -70,15 +63,12 @@ int main(int argc, char *argv[]) {
   double inicial_input[MAX_IN];
 
   system("clear");
-  printf("\n\n\t====================PROJETO 6====================\n\n");
-  printf("\t-> Criando a rede neural dinamicamente:\n\n");
+  printf("\n\n\t========================PROJETO 6========================\n\n");
+  printf("\t[1] Criando a rede neural dinamicamente:\n\n");
 
   NN = create_neural_network();
 
   printf("\n\tRede neural criada com sucesso!\n\n");
-  //printf("HL_NUM_INT: %d\n", HL_NEURONS);
-  //double output;
-  //output = feed_forward(input);
 
   /*printf("\nW_output:\n");
 
@@ -99,10 +89,7 @@ int main(int argc, char *argv[]) {
   erro1 = feed_forward(inicial_input, NN->In_layer[0], NN);
   printf("\n\tSaída do 1º arquivo com 536 posições: %.2lf\n", erro1);*/
 
-  //logística com feed_forward de todo mundo
   network_training(inicial_input, NN);
-
-
 
   return 0;
 }/*End-main*/
@@ -153,18 +140,18 @@ NeurualNetwork* create_neural_network(){
   for (int j = 0; j < MAX_IN; j++)
       *(In_layer + j) = create_neuron();
 
-  printf("\t[1] Camada de entrada alocada com %d neurônios.\n", new->size_i);
+  printf("\t-> Camada de entrada alocada com %d neurônios.\n", new->size_i);
 
   //allocate Hidden_layer
   Hidden_layer = (Neuron**)malloc(HL_NEURONS * sizeof(Neuron*));
   for (int j = 0; j < HL_NEURONS; j++)
       *(Hidden_layer + j) = create_neuron();
 
-  printf("\t[2] Camada oculta alocada com %d neurônios.\n", new->size_h);
+  printf("\t-> Camada oculta alocada com %d neurônios.\n", new->size_h);
 
   //allocate Output_layer
   Output_layer = create_neuron();
-  printf("\t[3] Camada de saída alocada com %d neurônios.\n", new->size_o);
+  printf("\t-> Camada de saída alocada com %d neurônios.\n", new->size_o);
 
   //allocate W_hidden
   W_hidden = (double**)malloc(HL_NEURONS * sizeof(double*));
@@ -275,7 +262,7 @@ void randomize_images(int *asphalt_training, int *grass_training, int *asphalt_t
   for(int i=1; i<=25; i++)
     printf("\tgrass_%.2d.txt   grass_%.2d.txt \n", grass_training[i], grass_test[i]);*/
 
-  printf("\t\tImagens escolhidas!\n");
+  printf("\t\tImagens escolhidas!");
 }/*End-randomize_images*/
 
 double calculate_neuron(Neuron *neuron, double *input, int size_input){
@@ -316,13 +303,13 @@ double feed_forward(double *input, NeurualNetwork *NN){
 void network_training(double *input, NeurualNetwork *NN){
   int asphalt_training[25], grass_training[25];
   int asphalt_test[25], grass_test[25];
-  int epoch = 0, cycle_asphalt = 0, cycle_grass = 0;
+  int epoch = 0;
   char path_file_asphalt[1000], path_file_grass[1000], path1[500], path2[500];
   double tmp_error, asphalt_error, grass_error, mse, error_vector_a[25], error_vector_g[25];
 
-  printf("\t-> Treinando a rede neural:\n\n");
+  printf("\t[2] Treinando a rede neural:\n\n");
 
-  printf("\t[1] Escolhendo as imagens de grama e asfalto aleatoriamente...\n");
+  printf("\t-> Escolhendo as imagens de grama e asfalto aleatoriamente...\n");
   randomize_images(asphalt_training, grass_training, asphalt_test, grass_test);
 
   /*Randomizes w and b to the 1º input into de NeurualNetwork*/
@@ -352,7 +339,7 @@ void network_training(double *input, NeurualNetwork *NN){
     NN->Output_layer->b = NN->B_output;
   /*End-Randomizes w and b to the 1º input*/
 
-  printf("\n\t[2] Treinando a rede...\n");
+  printf("\n\t-> Treinando a rede...\n");
   for(int i = 1; i <=50; i++){
     if(i <= 25){//Grass training loop
 
@@ -408,7 +395,11 @@ void network_training(double *input, NeurualNetwork *NN){
 
   }/*End-for*/
 
-  printf("\n\tFim do treinamento!\n");
+  printf("\n\tFim do treinamento!\n\n");
+
+  //Test the neurual network
+  network_test(input, NN, asphalt_test, grass_test);
+
 }/*End-network_training*/
 
 double mean_square_error(double *error_vector){
@@ -423,3 +414,75 @@ double mean_square_error(double *error_vector){
 void back_propagation(double error, NeurualNetwork *NN){
 
 }/*End-back_propagation*/
+
+void network_test(double *input, NeurualNetwork *NN, int *asphalt_test, int *grass_test){
+  char path_file_asphalt[1000], path_file_grass[1000], path1[500], path2[500];
+  double asphalt_error, grass_error, tmp_error;
+  int count_accepts = 0, count_false_accept = 0, count_false_rejection = 0;
+  double accepts, false_accept, false_rejection;
+
+
+  printf("\t[3] Testando a rede neural:\n\n");
+
+  printf("\t-> Imagens de grama e asfalto já foram escolhidas aleatoriamente!\n");
+  printf("\t-> Testando a rede e contabilizando as métricas...\n");
+  for(int i = 1; i <=50; i++){
+    if(i <= 25){//Grass test loop, GRASS 1
+
+      strcpy(path_file_grass, "./DataSet/VetoresGramaNormalizados/grass_");
+      sprintf(path2, "%d.txt", grass_test[i - 0]);
+      strcat(path_file_grass, path2);
+
+      pass_file_to_vector(path_file_grass, input);
+
+      tmp_error = feed_forward(input, NN);
+      grass_error = GRASS - tmp_error;
+      //grass_error = 1.00;
+
+      back_propagation(grass_error, NN);
+
+      grass_error = tmp_error;
+      //printf("\t\t%.2dº arquivo (error): %.5lf\n", i, grass_error);
+      if(grass_error > 0.5){
+        count_accepts++;
+      }else{
+        count_false_rejection++;
+      }
+
+    }else{ //Asphalt test loop, ASPHALT 0
+      strcpy(path_file_asphalt, "./DataSet/VetoresAsfaltoNormalizados/asphalt_");
+      sprintf(path1, "%.2d.txt", asphalt_test[i - 25]);
+      strcat(path_file_asphalt, path1);
+      pass_file_to_vector(path_file_asphalt, input);
+
+      tmp_error = feed_forward(input, NN);
+      asphalt_error = ASPHALT - tmp_error;
+      //asphalt_error = 0.00;
+
+      back_propagation(asphalt_error, NN);
+
+      asphalt_error = tmp_error;
+      //printf("\t\t%.2dº arquivo (error): %.5lf\n", i, asphalt_error);
+
+      if(asphalt_error <= 0.5){
+        count_accepts++;
+      }else{
+        count_false_accept++;
+      }
+
+    }/*End-if*/
+
+  }/*End-for*/
+
+  printf("\n\tFim do teste!\n");
+
+  accepts = (count_accepts * 100) / 50;
+  false_accept = (count_false_accept * 100) / 25;
+  false_rejection = (count_false_rejection * 100) / 25;
+
+  printf("\n\t[4] Métricas geradas:\n\n"); // GRASS 1, ASPHALT 0
+  printf("\tTAXA DE ACERTOS:         %.0lf%%\n", accepts); // % do total de 50imgs
+  printf("\tTAXA DE FALSA ACEITAÇÃO: %.0lf%%\n", false_accept); // é asphalt mas saiu grama
+  printf("\tTAXA DE FALSA REJEIÇÃO:  %.0lf%%\n\n", false_rejection); // é grama mais saiu asphalt
+
+}/*End-network_test*/
